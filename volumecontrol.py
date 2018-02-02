@@ -70,6 +70,10 @@ def set_application_sink(app, sink):
 def calculate_global_volume(volumes):
     return max(map(lambda v: int(v["volume"]), volumes))
 
+def is_muted(device):
+    props = get_sinks()[device]
+    return props["muted"]
+
 def change_volume(direction, device, current_volumes, max_volume):
     volume_step = int(max_volume / volume_steps)
     global_volume = calculate_global_volume(current_volumes)
@@ -232,13 +236,7 @@ def draw():
 
     menu.show()
 
-parser = argparse.ArgumentParser(description="Control the PulseAudio sound system")
-parser.add_argument('action', metavar="ACTION", type=str, choices=["gui", "volume-up", "volume-down", "show-volume", "mute"])
-
-args = parser.parse_args()
-if args.action == "gui":
-    draw()
-else:
+def get_current_sink():
     sinks = get_sinks()
     current_sink = None
     for i,sink in sinks.items():
@@ -250,11 +248,33 @@ else:
         print("No sink is selected")
         sys.exit()
 
+    return current_sink
+
+def get_current_sink_volume_string():
+    sink = get_current_sink()
+    volume = get_sink_global_percent_volume(sink)
+    muted = is_muted(sink["id"])
+    string = ("M " if muted else "") + str(volume)
+    return string
+
+parser = argparse.ArgumentParser(description="Control the PulseAudio sound system")
+parser.add_argument('action', metavar="ACTION", type=str, choices=["gui", "volume-up", "volume-down", "show-volume", "mute", "sink"])
+
+args = parser.parse_args()
+if args.action == "gui":
+    draw()
+else:
     if args.action == "volume-up":
-        print(int(100*volume_up(current_sink["id"])/current_sink["max_volume"]))
+        volume_up(get_current_sink()["id"])
+        print(get_current_sink_volume_string())
     elif args.action == "volume-down":
-        print(int(100*volume_down(current_sink["id"])/current_sink["max_volume"]))
+        volume_down(get_current_sink()["id"])
+        print(get_current_sink_volume_string())
     elif args.action == "show-volume":
-        print(get_sink_global_percent_volume(sink))
+        print(get_current_sink_volume_string())
     elif args.action == "mute":
-        toggle_mute(sink)
+        toggle_mute(get_current_sink()["id"])
+        print(get_current_sink_volume_string())
+    elif args.action == "sink":
+        print(get_current_sink()["name"])
+
